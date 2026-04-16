@@ -1,0 +1,64 @@
+# ============================================================================
+# JavaConnect KE — Spring AI Workshop — Local Infrastructure
+# ============================================================================
+# Starts Ollama (local LLMs) and Qdrant (vector database) for the workshop.
+#
+# Usage:
+#   docker compose up -d
+#   docker compose exec ollama ollama pull llama3.2
+#   docker compose exec ollama ollama pull nomic-embed-text
+# ============================================================================
+
+services:
+
+  # ---------------------------------------------------------------------------
+  # Ollama — Local LLM Runtime
+  # Exposes the OpenAI-compatible API on port 11434.
+  # GPU acceleration is enabled via the NVIDIA runtime when available.
+  # ---------------------------------------------------------------------------
+  ollama:
+    image: ollama/ollama:latest
+    container_name: workshop-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-models:/root/.ollama
+#    deploy:
+#      resources:
+#        reservations:
+#          devices:
+#            - driver: nvidia
+#              count: all
+#              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Qdrant — Vector Database for RAG (Lab 2)
+  # REST API on port 6333, gRPC on 6334.
+  # Dashboard UI available at http://localhost:6333/dashboard
+  # ---------------------------------------------------------------------------
+  qdrant:
+    image: qdrant/qdrant:latest
+    container_name: workshop-qdrant
+    ports:
+      - "6333:6333"   # REST API + Dashboard
+      - "6334:6334"   # gRPC
+    volumes:
+      - qdrant-data:/qdrant/storage
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:6333/readyz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  ollama-models:
+    driver: local
+  qdrant-data:
+    driver: local
