@@ -47,7 +47,7 @@ javaconnectke-springai-workshop/
     └── lab3-tools-mcp/        # Tool Calling, MCP, Embabel intro
 ```
 
-See [`infra/README.md`](infra/README.md) for detailed setup instructions.
+See [`infra/README.md`](infra/INFRA.md) for detailed setup instructions.
 
 ---
 
