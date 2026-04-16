@@ -1,0 +1,139 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>4.0.5</version>
+        <relativePath/>
+    </parent>
+
+    <groupId>ke.javaconnect</groupId>
+    <artifactId>lab1-chatbot</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+    <name>Lab 1 — ChatClient &amp; Chat Memory</name>
+    <description>
+        JavaConnect KE Spring AI Workshop — Lab 1.
+        Explores ChatClient, system prompts, Advisors, and multi-turn chat memory
+        backed by a local Ollama model.
+    </description>
+
+    <properties>
+        <java.version>25</java.version>
+        <spring-ai.version>2.0.0-M4</spring-ai.version>
+    </properties>
+
+    <dependencies>
+
+        <!-- ── Web ──────────────────────────────────────────────────────── -->
+        <!--
+            Brings in Spring MVC. We expose simple REST endpoints so the
+            audience can test the chatbot with curl or a browser without
+            needing a frontend.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+        </dependency>
+
+        <!-- ── Spring AI — Ollama ───────────────────────────────────────── -->
+        <!--
+            Pulls in:
+              • OllamaChatModel   — the Spring AI ChatModel implementation
+              • ChatClient        — the high-level fluent API we use in code
+              • All advisor infra — MessageChatMemoryAdvisor, SimpleLoggerAdvisor, …
+            Connects to Ollama on http://localhost:11434 by default.
+        -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-ollama</artifactId>
+        </dependency>
+
+        <!-- ── Dev Tools ────────────────────────────────────────────────── -->
+        <!--
+            Enables live-reload during development. Not needed in production.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-devtools</artifactId>
+            <scope>runtime</scope>
+            <optional>true</optional>
+        </dependency>
+
+        <!-- ── Test ─────────────────────────────────────────────────────── -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <!--
+        ══════════════════════════════════════════════════════════════════════
+        OPTIONAL — JDBC Chat Memory (uncomment to persist memory across
+        restarts).  Requires a DataSource bean.  Spring AI ships DDL scripts
+        for H2, PostgreSQL, MySQL, MariaDB, Oracle, SQL Server, SQLite, HSQLDB
+        ══════════════════════════════════════════════════════════════════════
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-chat-memory-repository-jdbc</artifactId>
+        </dependency>
+
+        H2 in-process (dev-only, data lost on restart unless you use a file URL):
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        PostgreSQL (production-ready persistence):
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        -->
+
+    </dependencies>
+
+    <!-- ── Spring AI BOM — keeps all spring-ai-* versions in sync ───────── -->
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+            </plugin>
+        </plugins>
+    </build>
+
+    <!--
+        Spring milestone artifacts are not on Maven Central.
+        This repository is required for Spring AI 2.0.0-M4 and Spring Boot 4.0.x.
+    -->
+    <repositories>
+        <repository>
+            <id>spring-milestones</id>
+            <name>Spring Milestones</name>
+            <url>https://repo.spring.io/milestone</url>
+            <snapshots>
+                <enabled>false</enabled>
+            </snapshots>
+        </repository>
+    </repositories>
+
+</project>

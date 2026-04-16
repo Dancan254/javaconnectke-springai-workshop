@@ -1,0 +1,61 @@
+# =============================================================================
+# Lab 1 — ChatClient & Chat Memory
+# =============================================================================
+
+spring:
+  application:
+    name: lab1-chatbot
+
+  ai:
+    ollama:
+      # Base URL of the Ollama HTTP API.
+      # Change this if you run Ollama on a different host/port,
+      # e.g. inside Docker: http://workshop-ollama:11434
+      base-url: http://localhost:11434
+
+      chat:
+        # The model tag to use for chat completions.
+        # Switch to any model you have pulled locally:
+        #   ollama pull llama3.2       (default — 3B, fast, ~2 GB)
+        #   ollama pull llama3.1:8b   (better reasoning, ~5 GB)
+        #   ollama pull mistral        (alternative 7B, ~4 GB)
+        #   ollama pull gemma3         (Google's model, ~5 GB)
+        model: llama3.2
+
+        options:
+          # Controls randomness.  0.0 = deterministic, 1.0 = very creative.
+          # Lower values (0.2–0.5) are better for factual Q&A.
+          # Higher values (0.7–0.9) produce more varied, creative responses.
+          temperature: 0.7
+
+          # Maximum number of tokens the model generates per response.
+          # Increase for longer answers, decrease for snappier ones.
+          num-predict: 512
+
+  # ── OPTIONAL: JDBC memory persistence ──────────────────────────────────
+  # Uncomment the datasource block below AND the JDBC dependency in pom.xml
+  # to persist conversation history across application restarts.
+  #
+  # datasource:
+  #   url: jdbc:h2:file:./data/chatmemory;AUTO_SERVER=TRUE
+  #   driver-class-name: org.h2.Driver
+  #
+  # h2:
+  #   console:
+  #     enabled: true        # Browse data at http://localhost:8080/h2-console
+
+
+# =============================================================================
+# Application-level memory tuning
+# These values are read by MemoryConfig and can be changed without recompiling.
+# =============================================================================
+app:
+  chat:
+    memory:
+      # Sliding-window size: how many messages (USER + ASSISTANT combined) are
+      # kept in context per conversation.  Oldest messages are evicted first
+      # once this limit is reached.
+      #
+      # Try setting this to 4 during the demo and notice that the model
+      # "forgets" things said more than 2 exchanges ago.
+      max-messages: 10
