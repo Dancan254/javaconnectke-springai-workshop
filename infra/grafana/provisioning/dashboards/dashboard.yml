@@ -1,0 +1,17 @@
+# =============================================================================
+# Grafana Dashboard Provisioning
+# =============================================================================
+# Points Grafana at the dashboards directory.
+# JSON files in that directory are loaded automatically on startup.
+# =============================================================================
+
+apiVersion: 1
+
+providers:
+  - name: "Workshop Dashboards"
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 30     # reload dashboards if the JSON file changes
+    allowUiUpdates: true          # allow edits in the UI during the workshop
+    options:
+      path: /var/lib/grafana/dashboards

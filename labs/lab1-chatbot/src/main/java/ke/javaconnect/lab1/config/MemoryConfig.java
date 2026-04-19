@@ -18,47 +18,42 @@ import org.springframework.context.annotation.Configuration;
  * so that each concern can be swapped without touching the others:
  *
  * <pre>
- * ┌────────────────────────────────────────────────────────────────────────┐
- * │  LAYER 1 — ChatMemoryRepository  (WHERE messages are stored)           │
- * │                                                                        │
- * │  Controls the physical storage backend.                                │
- * │                                                                        │
- * │  ● InMemoryChatMemoryRepository  — ConcurrentHashMap inside the JVM   │
- * │      ✔ Zero config, zero dependencies                                  │
- * │      ✘ Lost on restart                                                 │
- * │                                                                        │
- * │  ● JdbcChatMemoryRepository      — any JDBC-compatible relational DB   │
- * │      ✔ Survives restarts, shareable across instances                   │
- * │      ✔ Ships DDL scripts for 8 databases:                              │
- * │          PostgreSQL, MySQL, MariaDB, H2, HSQLDB,                       │
- * │          Oracle, SQL Server, SQLite                                    │
- * │      ✘ Requires a DataSource bean + the JDBC starter dependency        │
- * └───────────────────────────────┬────────────────────────────────────────┘
- *                                 │ feeds into
- * ┌───────────────────────────────▼────────────────────────────────────────┐
- * │  LAYER 2 — ChatMemory  (HOW MANY messages to keep)                     │
- * │                                                                        │
- * │  Controls the eviction / windowing policy on top of the repository.    │
- * │                                                                        │
- * │  ● MessageWindowChatMemory  — sliding window of the last N messages    │
- * │      ✔ Prevents the context window from overflowing                    │
- * │      ✔ Configurable via maxMessages (default: 20)                      │
- * │      ✘ Simple FIFO eviction — no semantic summarisation                │
- * └───────────────────────────────┬────────────────────────────────────────┘
- *                                 │ used by
- * ┌───────────────────────────────▼────────────────────────────────────────┐
- * │  LAYER 3 — ChatMemoryAdvisor  (HOW history is injected into the prompt)│
- * │                                                                        │
- * │  ● MessageChatMemoryAdvisor  — injects history as Message objects      │
- * │      ✔ Native multi-turn support (USER / ASSISTANT pairs in messages)  │
- * │      ✔ Models that understand roles handle this best                   │
- * │      → Recommended for most use cases                                  │
- * │                                                                        │
- * │  ● PromptChatMemoryAdvisor   — serialises history into the system text │
- * │      ✔ Works with models that do not handle multi-turn natively        │
- * │      ✔ Fully customisable via a PromptTemplate                         │
- * │      → Good for instruct-only models or custom history formatting      │
- * └────────────────────────────────────────────────────────────────────────┘
+ * LAYER 1 — ChatMemoryRepository  (WHERE to store)
+ * -------------------------------------------------
+ *  InMemoryChatMemoryRepository
+ *    + Zero config, zero dependencies
+ *    - Lost on restart
+ *
+ *  JdbcChatMemoryRepository
+ *    + Survives restarts, shareable across instances
+ *    + DDL scripts for 8 databases (Postgres, MySQL,
+ *      MariaDB, H2, HSQLDB, Oracle, SQL Server, SQLite)
+ *    - Requires DataSource + JDBC starter in pom.xml
+ *
+ *        |
+ *        v  feeds into
+ *
+ * LAYER 2 — ChatMemory  (HOW MANY messages to keep)
+ * --------------------------------------------------
+ *  MessageWindowChatMemory
+ *    + Sliding window — keeps last N messages
+ *    + maxMessages is configurable (default: 20)
+ *    - Simple FIFO eviction, no summarisation
+ *
+ *        |
+ *        v  used by
+ *
+ * LAYER 3 — ChatMemoryAdvisor  (HOW to inject history)
+ * -----------------------------------------------------
+ *  MessageChatMemoryAdvisor        [recommended]
+ *    + Injects history as typed Message objects
+ *      (USER / ASSISTANT pairs in the messages list)
+ *    + Best for models with native multi-turn support
+ *
+ *  PromptChatMemoryAdvisor
+ *    + Serialises history as text in the system prompt
+ *    + Fully customisable via a PromptTemplate
+ *    + Good for instruct-only models or custom formats
  * </pre>
  *
  * <h2>Conversation isolation</h2>
@@ -119,20 +114,21 @@ public class MemoryConfig {
         // Zero config. Perfect for demos and development.
         return new InMemoryChatMemoryRepository();
 
-        // ── OPTION B: JDBC — H2 file (persists across restarts, single node) ──
-        // Requires: spring-ai-starter-model-chat-memory-repository-jdbc + H2 driver
-        // Spring AI auto-creates the schema on startup (spring.ai.chat.memory.jdbc.initialize-schema=true)
-        //
-        // return JdbcChatMemoryRepository.builder()
-        //         .jdbcTemplate(jdbcTemplate)   // inject JdbcTemplate
-        //         .build();
+         /* ── OPTION B: JDBC — H2 file (persists across restarts, single node) ──
+         Requires: spring-ai-starter-model-chat-memory-repository-jdbc + H2 driver
+         Spring AI auto-creates the schema on startup (spring.ai.chat.memory.jdbc.initialize-schema=true)
 
-        // ── OPTION C: JDBC — PostgreSQL (production-ready) ────────────────
-        // Same dependency as Option B, just swap the DataSource to a PG pool.
-        //
-        // return JdbcChatMemoryRepository.builder()
-        //         .jdbcTemplate(jdbcTemplate)
-        //         .build();
+         return JdbcChatMemoryRepository.builder()
+                 .jdbcTemplate(jdbcTemplate)   // inject JdbcTemplate
+                 .build();
+
+         ── OPTION C: JDBC — PostgreSQL (production-ready) ────────────────
+         Same dependency as Option B, just swap the DataSource to a PG pool.
+
+         return JdbcChatMemoryRepository.builder()
+                 .jdbcTemplate(jdbcTemplate)
+                 .build();
+          */
     }
 
     // =========================================================================

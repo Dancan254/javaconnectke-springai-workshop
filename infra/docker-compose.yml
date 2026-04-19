@@ -1,41 +1,53 @@
 # ============================================================================
 # JavaConnect KE — Spring AI Workshop — Local Infrastructure
 # ============================================================================
-# Starts Ollama (local LLMs) and Qdrant (vector database) for the workshop.
+# Services:
+#   qdrant     — Vector database (Lab 2)    → http://localhost:6333
+#   prometheus — Metrics scraper            → http://localhost:9090
+#   grafana    — Metrics visualisation      → http://localhost:3000
+#
+# Ollama is commented out by default — uncomment it if you do not have
+# Ollama installed locally. If you already have Ollama running on your
+# machine, leave it commented and it will be used automatically.
 #
 # Usage:
 #   docker compose up -d
-#   docker compose exec ollama ollama pull llama3.2
-#   docker compose exec ollama ollama pull nomic-embed-text
+#   ollama pull llama3.2            (if running Ollama locally)
+#   ollama pull nomic-embed-text
 # ============================================================================
 
 services:
 
   # ---------------------------------------------------------------------------
   # Ollama — Local LLM Runtime
+  # Uncomment this entire block if you do NOT have Ollama installed locally.
   # Exposes the OpenAI-compatible API on port 11434.
-  # GPU acceleration is enabled via the NVIDIA runtime when available.
+  #
+  # After uncommenting, pull models via:
+  #   docker compose exec ollama ollama pull llama3.2
+  #   docker compose exec ollama ollama pull nomic-embed-text
   # ---------------------------------------------------------------------------
-  ollama:
-    image: ollama/ollama:latest
-    container_name: workshop-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama-models:/root/.ollama
-#    deploy:
-#      resources:
-#        reservations:
-#          devices:
-#            - driver: nvidia
-#              count: all
-#              capabilities: [gpu]
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
+  # ollama:
+  #   image: ollama/ollama:latest
+  #   container_name: workshop-ollama
+  #   ports:
+  #     - "11434:11434"
+  #   volumes:
+  #     - ollama-models:/root/.ollama
+  #   # Uncomment the block below to enable NVIDIA GPU acceleration:
+  #   # deploy:
+  #   #   resources:
+  #   #     reservations:
+  #   #       devices:
+  #   #         - driver: nvidia
+  #   #           count: all
+  #   #           capabilities: [gpu]
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "curl -sf http://localhost:11434/api/tags || exit 1"]
+  #     interval: 15s
+  #     timeout: 5s
+  #     retries: 5
 
   # ---------------------------------------------------------------------------
   # Qdrant — Vector Database for RAG (Lab 2)
@@ -57,8 +69,115 @@ services:
       timeout: 5s
       retries: 5
 
+  # ---------------------------------------------------------------------------
+  # Prometheus — Metrics Scraper
+  #
+  # Scrapes /actuator/prometheus from the Spring Boot app every 5 seconds.
+  # The app runs on the HOST machine (not inside Docker), so Prometheus
+  # reaches it via host.docker.internal (Docker Desktop / Mac / Windows)
+  # or via the gateway IP on Linux — both are handled in prometheus.yml.
+  #
+  # UI: http://localhost:9090
+  # ---------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: workshop-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=7d"   # keep 7 days of data
+      - "--web.enable-lifecycle"              # allows config reload via POST /-/reload
+    # Required on Linux so containers can reach the host machine.
+    # Docker Desktop (Mac/Windows) handles this automatically.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:9090/-/healthy || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Tempo — Distributed Tracing Backend
+  #
+  # Receives OTLP traces from Spring Boot on port 4318 (HTTP) / 4317 (gRPC).
+  # Grafana queries Tempo on port 3200 to render trace waterfalls.
+  #
+  # Every Spring AI chat call produces a span with:
+  #   gen_ai.prompt      — the full prompt sent to the model
+  #   gen_ai.completion  — the model's full response
+  #   gen_ai.system      — "ollama"
+  #   gen_ai.request.model, gen_ai.response.model, etc.
+  # ---------------------------------------------------------------------------
+  tempo:
+    image: grafana/tempo:latest
+    container_name: workshop-tempo
+    command: ["-config.file=/etc/tempo.yml"]
+    ports:
+      - "3200:3200"   # Tempo HTTP API (Grafana datasource)
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP  ← Spring Boot pushes traces here
+    volumes:
+      - ./tempo/tempo.yml:/etc/tempo.yml:ro
+      - tempo-data:/var/tempo
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3200/ready || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # ---------------------------------------------------------------------------
+  # Grafana — Metrics Visualisation
+  #
+  # Pre-provisioned with:
+  #   • Prometheus datasource (auto-wired, no manual setup needed)
+  #   • Spring AI Workshop dashboard (auto-loaded on startup)
+  #
+  # UI:       http://localhost:3000
+  # Login:    admin / workshop  (change in production!)
+  # ---------------------------------------------------------------------------
+  grafana:
+    image: grafana/grafana:latest
+    container_name: workshop-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: workshop
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      prometheus:
+        condition: service_healthy
+      tempo:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
-  ollama-models:
-    driver: local
+  # ollama-models:   # uncomment if the ollama service above is enabled
+  #   driver: local
   qdrant-data:
+    driver: local
+  tempo-data:
+    driver: local
+  prometheus-data:
+    driver: local
+  grafana-data:
     driver: local

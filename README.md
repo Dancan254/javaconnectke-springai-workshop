@@ -8,20 +8,7 @@ A hands-on workshop introducing [Spring AI](https://docs.spring.io/spring-ai/ref
 2. **Lab 2** — A RAG-powered Q&A app that answers questions about your own documents
 3. **Lab 3** — An AI agent that calls real tools, exposes them over MCP, and reasons with Embabel
 
-## Quick Start
-
-```bash
-# 1. Start infrastructure (Ollama + Qdrant)
-cd infra && docker compose up -d
-
-# 2. Pull models
-docker compose exec ollama ollama pull llama3.2
-docker compose exec ollama ollama pull nomic-embed-text
-
-# 3. Run a lab
-cd ../labs/lab1-chatbot
-./mvnw spring-boot:run
-```
+---
 
 ## Prerequisites
 
@@ -34,20 +21,178 @@ cd ../labs/lab1-chatbot
 
 > **No GPU? No problem.** Ollama runs on CPU — responses will be slower but fully functional on a laptop with 16 GB RAM.
 
+---
+
 ## Repository Structure
 
 ```
 javaconnectke-springai-workshop/
-├── infra/                     # Docker Compose for local backing services
-│   ├── docker-compose.yml
-│   └── README.md
+├── infra/                        # Docker Compose — all backing services
+│   ├── docker-compose.yml        # Ollama, Qdrant, Prometheus, Grafana
+│   ├── prometheus/
+│   │   └── prometheus.yml        # Scrape config (one job per lab)
+│   └── grafana/
+│       ├── provisioning/         # Auto-wired datasource + dashboard loader
+│       └── dashboards/           # Spring AI Workshop Grafana dashboard JSON
 └── labs/
-    ├── lab1-chatbot/          # ChatClient, Advisors, Chat Memory (Ollama)
-    ├── lab2-rag/              # RAG, ETL pipeline, VectorStore (Qdrant)
-    └── lab3-tools-mcp/        # Tool Calling, MCP, Embabel intro
+    ├── lab1-chatbot/             # ChatClient, Advisors, Chat Memory (Ollama)
+    ├── lab2-rag/                 # RAG, ETL pipeline, VectorStore (Qdrant)
+    └── lab3-tools-mcp/           # Tool Calling, MCP, Embabel intro
 ```
 
-See [`infra/README.md`](infra/INFRA.md) for detailed setup instructions.
+---
+
+## Running Lab 1
+
+### Step 1 — Set up Ollama
+
+**Option A — Ollama installed locally (recommended)**
+
+```bash
+ollama pull llama3.2
+```
+
+**Option B — Run Ollama in Docker**
+
+Uncomment the `ollama` service block in `infra/docker-compose.yml`, then after starting the stack:
+
+```bash
+docker compose exec ollama ollama pull llama3.2
+```
+
+### Step 2 — Start the infrastructure
+
+From the repo root:
+
+```bash
+cd infra
+docker compose up -d
+```
+
+Wait until all services are healthy:
+
+```bash
+docker compose ps
+```
+
+Expected output (Ollama local):
+
+```
+NAME                  STATUS
+workshop-qdrant       running (healthy)
+workshop-prometheus   running (healthy)
+workshop-grafana      running (healthy)
+```
+
+### Step 3 — Run the Spring Boot app
+
+Open a new terminal from the repo root:
+
+```bash
+cd labs/lab1-chatbot
+./mvnw spring-boot:run
+```
+
+Wait for:
+
+```
+Started Lab1Application in X.XXX seconds
+```
+
+### Step 4 — Test the endpoints
+
+**Stateless chat — no memory**
+
+```bash
+curl "http://localhost:8080/chat/simple?message=What+is+Spring+AI"
+```
+
+Ask a follow-up — the model won't remember:
+
+```bash
+curl "http://localhost:8080/chat/simple?message=Tell+me+more"
+```
+
+**Stateful chat — with memory**
+
+```bash
+# Turn 1
+curl "http://localhost:8080/chat/memory?message=My+name+is+Dan&conversationId=demo"
+
+# Turn 2 — model remembers your name
+curl "http://localhost:8080/chat/memory?message=What+is+my+name&conversationId=demo"
+
+# Different ID = fresh conversation
+curl "http://localhost:8080/chat/memory?message=What+is+my+name&conversationId=other"
+```
+
+**Streaming — tokens arrive as they are generated**
+
+```bash
+curl -N "http://localhost:8080/chat/stream?message=Tell+me+a+short+story&conversationId=story1"
+```
+
+**Conversation management**
+
+```bash
+# List all active conversation IDs
+curl http://localhost:8080/conversations
+
+# Inspect stored message history
+curl http://localhost:8080/conversations/demo
+
+# Clear one conversation (e.g. on logout)
+curl -X DELETE http://localhost:8080/conversations/demo
+
+# Wipe everything (workshop reset)
+curl -X DELETE http://localhost:8080/conversations
+```
+
+**Health check**
+
+```bash
+curl http://localhost:8080/actuator/health | jq
+```
+
+### Step 5 — Open Grafana
+
+Navigate to **http://localhost:3000** and log in with `admin` / `workshop`.
+
+The **Spring AI Workshop** dashboard loads automatically. Send a few requests and watch:
+
+- **AI Model Performance** — latency percentiles and token counters update in real time
+- **Token Usage — Input vs Output** — notice input tokens grow as conversation memory fills up
+- **Requests by Model** — confirms which Ollama model handled each call
+
+To inspect the raw Prometheus metrics:
+
+```bash
+curl http://localhost:8080/actuator/prometheus | grep gen_ai
+```
+
+### Step 6 — Enable debug logging (optional)
+
+To see the full enriched prompt (with injected memory history) printed to the console on every request, uncomment this line in `labs/lab1-chatbot/src/main/resources/application.yml`:
+
+```yaml
+logging:
+  level:
+    org.springframework.ai.chat.client.advisor: DEBUG
+```
+
+Then restart the app. This is the best way to show the audience exactly what the model receives.
+
+### Tear down
+
+```bash
+# Stop the app — Ctrl+C in its terminal
+
+# Stop infrastructure, keep model cache and vector data
+cd infra && docker compose down
+
+# Stop AND delete all stored data
+docker compose down -v
+```
 
 ---
 
@@ -60,13 +205,6 @@ See [`infra/README.md`](infra/INFRA.md) for detailed setup instructions.
 - Stateless vs. stateful conversations
 - `MessageChatMemoryAdvisor` for multi-turn memory
 - Running a local LLM with **Ollama** — no API keys, no cloud costs
-
-### Running the Lab
-
-```bash
-cd labs/lab1-chatbot
-./mvnw spring-boot:run
-```
 
 ### Key Concepts
 
@@ -81,7 +219,7 @@ cd labs/lab1-chatbot
 ### Demo Walkthrough
 1. A bare `ChatClient` call — single question, no memory
 2. Add `MessageChatMemoryAdvisor` — the model now remembers the conversation
-3. Swap the Ollama model via `application.properties` without touching Java code
+3. Swap the Ollama model via `application.yml` without touching Java code
 
 ---
 
@@ -106,25 +244,25 @@ cd labs/lab2-rag
 ### RAG Architecture
 
 ```
- Your Documents
-      │
-      ▼
- DocumentReader          (PDF, text, web pages, …)
-      │
-      ▼
- TextSplitter            (chunk into overlapping segments)
-      │
-      ▼
- EmbeddingModel          (convert chunks to vectors)
-      │
-      ▼
- VectorStore             (store + index vectors in Qdrant)
-      │
-      ▼
- QuestionAnswerAdvisor   (retrieve relevant chunks at query time)
-      │
-      ▼
- ChatClient              (augmented prompt → LLM → answer)
+Your Documents
+      |
+      v
+DocumentReader        (PDF, text, web pages, ...)
+      |
+      v
+TextSplitter          (chunk into overlapping segments)
+      |
+      v
+EmbeddingModel        (convert chunks to vectors)
+      |
+      v
+VectorStore           (store + index vectors in Qdrant)
+      |
+      v
+QuestionAnswerAdvisor (retrieve relevant chunks at query time)
+      |
+      v
+ChatClient            (augmented prompt -> LLM -> answer)
 ```
 
 ### Key Concepts
@@ -185,12 +323,13 @@ cd labs/lab3-tools-mcp
 
 | Component | Technology |
 |---|---|
-| Framework | Spring Boot 3.x |
-| AI Layer | Spring AI |
+| Framework | Spring Boot 4.0.5 |
+| AI Layer | Spring AI 2.0.0-M4 |
 | Agents | Embabel |
 | LLM | Ollama + Llama 3.2 |
 | Embeddings | nomic-embed-text |
 | Vector DB | Qdrant |
+| Metrics | Micrometer + Prometheus + Grafana |
 
 ## Workshop Format
 

@@ -1,55 +1,64 @@
 # Infrastructure Setup
 
-This directory contains everything you need to run the workshop's backing services locally using Docker Compose.
+This directory contains the Docker Compose stack for the workshop's backing services.
+
+## Ollama — Local vs Docker
+
+The `ollama` service in `docker-compose.yml` is **commented out by default**.
+
+| Setup | What to do |
+|---|---|
+| Ollama already installed on your machine | Leave it commented — the app connects to `localhost:11434` automatically |
+| No local Ollama install | Uncomment the `ollama` block (and its volume) in `docker-compose.yml` |
+
+Pull the required models:
+
+```bash
+# If running Ollama locally
+ollama pull llama3.2
+ollama pull nomic-embed-text
+
+# If running Ollama via Docker Compose (after docker compose up -d)
+docker compose exec ollama ollama pull llama3.2
+docker compose exec ollama ollama pull nomic-embed-text
+```
+
+## Services
+
+| Service | URL | Used In | Purpose |
+|---|---|---|---|
+| Ollama | http://localhost:11434 | All labs | Local LLM inference (local or Docker) |
+| Qdrant REST | http://localhost:6333 | Lab 2 | Vector storage for RAG |
+| Qdrant Dashboard | http://localhost:6333/dashboard | Lab 2 | Visual collection browser |
+| Prometheus | http://localhost:9090 | All labs | Metrics scraper |
+| Grafana | http://localhost:3000 | All labs | Metrics visualisation (`admin` / `workshop`) |
 
 ## Prerequisites
 
 | Tool | Minimum Version | Check |
 |---|---|---|
 | Docker & Compose | 27+ / v2 | `docker compose version` |
-| (Optional) NVIDIA GPU | CUDA 12+ | `nvidia-smi` |
-
-> **No GPU? No problem.** Ollama runs on CPU just fine — responses will simply be slower. The `llama3.2` 3B model is perfectly usable on a modern laptop with 16 GB RAM.
-
-## Services
-
-| Service | URL | Used In | Purpose |
-|---|---|---|---|
-| Ollama API | http://localhost:11434 | All labs | Local LLM inference |
-| Qdrant REST | http://localhost:6333 | Lab 2 | Vector storage for RAG |
-| Qdrant Dashboard | http://localhost:6333/dashboard | Lab 2 | Visual collection browser |
-| Qdrant gRPC | localhost:6334 | Lab 2 | gRPC alternative |
+| Ollama (if local) | latest | `ollama --version` |
 
 ## Quick Start
 
 ```bash
-# 1. Start all services
 cd infra
 docker compose up -d
-
-# 2. Pull the models used in the workshop
-docker compose exec ollama ollama pull llama3.2           # Chat model (~2 GB)
-docker compose exec ollama ollama pull nomic-embed-text   # Embedding model (~274 MB)
-
-# 3. Verify everything is healthy
-docker compose ps                             # Both services should show "healthy"
-curl http://localhost:11434/api/tags          # Lists pulled Ollama models
-curl http://localhost:6333/readyz             # Returns "ok" when Qdrant is ready
+docker compose ps   # all services should show "healthy"
 ```
 
 ## Troubleshooting
 
-**Ollama is slow on the first request:** The model loads into memory on the first inference call. Subsequent calls are fast.
+**Ollama is slow on the first request:** The model loads into memory on the first inference call. Subsequent calls are much faster.
 
-**Port conflicts:** If `11434` or `6333` are already in use, adjust the left-hand port numbers in `docker-compose.yml` and update the matching properties in the affected lab's `application.properties`.
+**Port conflicts:** Adjust the left-hand port numbers in `docker-compose.yml` and update the corresponding values in the affected lab's `application.yml`.
 
-**GPU not detected:** Uncomment the `deploy.resources` block in the `ollama` service definition and ensure the NVIDIA Container Toolkit is installed. Ollama will fall back to CPU automatically if the GPU is unavailable.
-
-**Qdrant data persists between restarts** via the `qdrant-data` Docker volume. If you want a clean slate between runs, use `docker compose down -v`.
+**Qdrant data persists between restarts** via the `qdrant-data` Docker volume. Use `docker compose down -v` for a clean slate.
 
 ## Tearing Down
 
 ```bash
-docker compose down        # Stop services, keep model cache and vector data
+docker compose down        # Stop services, keep data
 docker compose down -v     # Stop services AND delete all stored data
 ```

@@ -1,0 +1,64 @@
+# =============================================================================
+# Prometheus — Scrape Configuration
+# =============================================================================
+# Scrapes metrics from the Spring Boot workshop apps and Ollama.
+#
+# The Spring Boot app runs on the HOST machine, not inside Docker.
+# Prometheus reaches it via host.docker.internal (Docker Desktop / Mac / Win)
+# or host-gateway (Linux — set via extra_hosts in docker-compose.yml).
+# =============================================================================
+
+global:
+  scrape_interval:     5s   # How often to scrape targets
+  evaluation_interval: 5s   # How often to evaluate alerting rules
+  scrape_timeout:      4s
+
+scrape_configs:
+
+  # ---------------------------------------------------------------------------
+  # Lab 1 — ChatClient & Chat Memory (port 8080)
+  # Exposes: /actuator/prometheus
+  # Requires: micrometer-registry-prometheus in pom.xml
+  # ---------------------------------------------------------------------------
+  - job_name: "lab1-chatbot"
+    metrics_path: "/actuator/prometheus"
+    static_configs:
+      - targets:
+          - "host.docker.internal:8080"
+        labels:
+          lab: "lab1"
+          app: "chatbot"
+
+  # ---------------------------------------------------------------------------
+  # Lab 2 — RAG (port 8081)
+  # Uncomment when Lab 2 is running.
+  # ---------------------------------------------------------------------------
+  # - job_name: "lab2-rag"
+  #   metrics_path: "/actuator/prometheus"
+  #   static_configs:
+  #     - targets:
+  #         - "host.docker.internal:8081"
+  #       labels:
+  #         lab: "lab2"
+  #         app: "rag"
+
+  # ---------------------------------------------------------------------------
+  # Lab 3 — Tools & MCP (port 8082)
+  # Uncomment when Lab 3 is running.
+  # ---------------------------------------------------------------------------
+  # - job_name: "lab3-tools-mcp"
+  #   metrics_path: "/actuator/prometheus"
+  #   static_configs:
+  #     - targets:
+  #         - "host.docker.internal:8082"
+  #       labels:
+  #         lab: "lab3"
+  #         app: "tools-mcp"
+
+  # ---------------------------------------------------------------------------
+  # Prometheus self-monitoring
+  # ---------------------------------------------------------------------------
+  - job_name: "prometheus"
+    static_configs:
+      - targets:
+          - "localhost:9090"

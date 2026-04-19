@@ -1,0 +1,46 @@
+# =============================================================================
+# Grafana Datasource Provisioning — Prometheus + Tempo
+# =============================================================================
+apiVersion: 1
+
+datasources:
+
+  # ---------------------------------------------------------------------------
+  # Prometheus — metrics
+  # ---------------------------------------------------------------------------
+  - name: Prometheus
+    type: prometheus
+    uid: workshop-prometheus
+    url: http://prometheus:9090
+    access: proxy
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "5s"
+      httpMethod: POST
+      # Link traces in Prometheus to Tempo (trace-to-metrics correlation)
+      exemplarTraceIdDestinations:
+        - name: traceID
+          datasourceUid: workshop-tempo
+
+  # ---------------------------------------------------------------------------
+  # Tempo — distributed traces
+  # Shows gen_ai.prompt, gen_ai.completion, and full span waterfalls.
+  # ---------------------------------------------------------------------------
+  - name: Tempo
+    type: tempo
+    uid: workshop-tempo
+    url: http://tempo:3200
+    access: proxy
+    editable: false
+    jsonData:
+      httpMethod: GET
+      # Link spans back to Prometheus metrics for the same service
+      serviceMap:
+        datasourceUid: workshop-prometheus
+      # Show node graph view in trace waterfall
+      nodeGraph:
+        enabled: true
+      # Map trace IDs found in Prometheus exemplars back to Tempo
+      tracesToMetrics:
+        datasourceUid: workshop-prometheus
