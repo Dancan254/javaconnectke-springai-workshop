@@ -93,6 +93,8 @@ application-local.yml
 application-local.properties
 application-secret*.yml
 application-secret*.properties
+# Lab 2 — Azure + Neon credentials (use keys.properties.template as reference)
+keys.properties
 
 # -----------------------------------------------------------------------------
 # Java

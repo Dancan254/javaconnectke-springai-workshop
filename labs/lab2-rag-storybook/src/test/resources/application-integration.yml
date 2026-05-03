@@ -1,0 +1,10 @@
+spring:
+  config:
+    import: optional:classpath:keys.properties
+
+logging:
+  level:
+    ke.javaconnect: INFO
+    org.springframework.ai.chat.client.advisor: INFO
+    org.springframework.ai.vectorstore: INFO
+    org.flywaydb: WARN
