@@ -1,0 +1,46 @@
+# =============================================================================
+# Lab 2 — RAG Storybook: Local Infrastructure
+# =============================================================================
+#
+# Starts ChromaDB — the vector store used by Spring AI to persist and search
+# story embeddings. Spring Boot connects to it on the default port 8000.
+#
+# Usage:
+#   docker compose up -d          # start ChromaDB in the background
+#   docker compose down           # stop (data is preserved in the volume)
+#   docker compose down -v        # stop AND wipe all stored embeddings
+#                                 # (use this to force a fresh re-ingestion)
+#
+# After starting, the Spring Boot app will:
+#   1. Connect to ChromaDB at http://localhost:8000
+#   2. Auto-create the "karibu-stories" collection (initialize-schema=true)
+#   3. Run the story ingestion pipeline on first startup
+#
+# ChromaDB REST API is also available for manual inspection:
+#   curl http://localhost:8000/api/v2/heartbeat
+#   curl http://localhost:8000/api/v2/collections
+# =============================================================================
+
+services:
+  chroma:
+    image: chromadb/chroma:latest
+    container_name: lab2-chroma
+    ports:
+      - "8000:8000"
+    environment:
+      # Run without authentication — fine for local workshop use.
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    volumes:
+      # Named volume keeps embeddings across docker compose restarts.
+      # Run "docker compose down -v" to wipe and force re-ingestion.
+      - chroma_data:/chroma/chroma
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  chroma_data:
+    name: lab2-chroma-data

@@ -40,9 +40,9 @@ import java.util.stream.IntStream;
  * │       │                                                      │
  * │       ▼                                                      │
  * │  LOAD                                                        │
- * │  VectorStore.add() calls Azure OpenAI text-embedding-ada-002 │
- * │  Vectors stored in Neon PostgreSQL (vector_store table)      │
- * │  IVFFlat index updated for fast similarity search            │
+ * │  VectorStore.add() calls Azure OpenAI text-embedding-3-large │
+ * │  Vectors stored in ChromaDB (karibu-stories collection)      │
+ * │  ChromaDB indexes for fast cosine similarity search          │
  * └──────────────────────────────────────────────────────────────┘
  * </pre>
  *
@@ -52,16 +52,17 @@ import java.util.stream.IntStream;
  * This means the app can be restarted without re-embedding (and paying the
  * Azure OpenAI embedding cost again).
  *
- * <p>To force re-ingestion (e.g., after editing the story), delete all rows
- * from the {@code vector_store} table in Neon:
+ * <p>To force re-ingestion (e.g., after editing the story), wipe the ChromaDB
+ * data volume and restart the container, then restart the app:
  * <pre>
- *   DELETE FROM vector_store;
+ *   docker compose down -v
+ *   docker compose up -d
  * </pre>
  *
  * <h2>When it runs</h2>
  * <p>The {@link ApplicationReadyEvent} fires after the entire Spring context
- * is initialised, including Flyway migrations and the PgVectorStore bean.
- * This ensures the {@code vector_store} table exists before we try to write to it.
+ * is initialised, including the ChromaVectorStore bean and its collection.
+ * This ensures the {@code karibu-stories} collection exists before we write to it.
  *
  * @see ke.javaconnect.lab2.config.RagConfig
  */
@@ -100,7 +101,7 @@ public class StoryIngestionService {
 
         if (alreadyIngested()) {
             log.info("[RAG][INGEST] Story already ingested — skipping embedding.");
-            log.info("[RAG][INGEST] To re-ingest: DELETE FROM vector_store; and restart.");
+            log.info("[RAG][INGEST] To re-ingest: docker compose down -v && docker compose up -d, then restart.");
             return;
         }
 
@@ -147,13 +148,13 @@ public class StoryIngestionService {
      * Splits raw documents into token-sized chunks and enriches their metadata.
      *
      * <p>{@link TokenTextSplitter} uses the CL100K_BASE encoding (same as
-     * OpenAI's GPT-4 and text-embedding-ada-002), so chunk sizes correspond
+     * OpenAI's GPT-4.1 and text-embedding-3-large), so chunk sizes correspond
      * directly to the embedding model's token budget.
      *
      * <p>Parameters chosen for the story:
      * <ul>
      *   <li>{@code chunkSize=800} — each chunk is ≤800 tokens, well under
-     *       text-embedding-ada-002's 8191-token limit.</li>
+     *       text-embedding-3-large's 8191-token limit.</li>
      *   <li>{@code minChunkSizeChars=200} — discard very small fragments
      *       that would produce low-quality embeddings.</li>
      *   <li>{@code keepSeparator=true} — preserve paragraph breaks in chunks,
@@ -193,21 +194,21 @@ public class StoryIngestionService {
      *
      * <p>Internally, {@link VectorStore#add} calls the configured
      * {@link org.springframework.ai.embedding.EmbeddingModel} (Azure OpenAI
-     * text-embedding-ada-002) to convert each chunk's text into a 1536-dimension
+     * text-embedding-3-large) to convert each chunk's text into a 3072-dimension
      * floating-point vector, then persists the vector alongside the original text
-     * and metadata in the {@code vector_store} table.
+     * and metadata in ChromaDB's {@code karibu-stories} collection.
      *
      * <p>This is the most expensive step — one Azure OpenAI API call per batch
      * of chunks. The model batches internally, but watch the Azure portal's
      * token usage counter during the workshop to see it fire.
      */
     private void load(List<Document> chunks) {
-        log.info("[RAG][INGEST][3/3] LOAD — Embedding {} chunks via Azure OpenAI (text-embedding-ada-002)", chunks.size());
-        log.info("[RAG][INGEST][3/3] LOAD — Writing vectors to Neon PostgreSQL (vector_store)...");
+        log.info("[RAG][INGEST][3/3] LOAD — Embedding {} chunks via Azure OpenAI (text-embedding-3-large)", chunks.size());
+        log.info("[RAG][INGEST][3/3] LOAD — Writing vectors to ChromaDB (karibu-stories collection)...");
 
         vectorStore.add(chunks);
 
-        log.info("[RAG][INGEST][3/3] LOAD — Done. {} story chunks stored in PgVector.", chunks.size());
+        log.info("[RAG][INGEST][3/3] LOAD — Done. {} story chunks stored in ChromaDB.", chunks.size());
         log.info("[RAG][INGEST] Vector store is ready. You can now ask questions about the story.");
         log.info("[RAG][INGEST] Try: POST /story/ask?message=Who+is+Ayana&conversationId=demo");
     }

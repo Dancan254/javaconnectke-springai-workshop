@@ -10,14 +10,15 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  * On startup the application will:
  *
  * <ol>
- *   <li>Run Flyway migration — creates the {@code vector_store} table in Neon PostgreSQL
- *       with the {@code pgvector} extension and an IVFFlat index.</li>
- *   <li>Boot all Spring beans — including PgVectorStore and the Azure OpenAI
+ *   <li>Connect to ChromaDB — the vector store running locally via Docker
+ *       ({@code docker compose up -d}). Spring AI auto-creates the
+ *       {@code karibu-stories} collection on first run.</li>
+ *   <li>Boot all Spring beans — including ChromaVectorStore and the Azure OpenAI
  *       chat + embedding models.</li>
  *   <li>Trigger {@link ke.javaconnect.lab2.ingestion.StoryIngestionService}
  *       via {@code ApplicationReadyEvent} — reads {@code story.md}, splits it
- *       into token-sized chunks, embeds them with {@code text-embedding-ada-002},
- *       and stores the vectors in Neon.</li>
+ *       into token-sized chunks, embeds them with {@code text-embedding-3-large},
+ *       and stores the vectors in ChromaDB.</li>
  * </ol>
  *
  * <p>Once running, callers can query the story through the REST API:
@@ -27,11 +28,11 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
  *   GET  /story/documents
  * </pre>
  *
- * <p>Prerequisites (fill in {@code keys.properties}):
+ * <p>Prerequisites:
  * <ul>
- *   <li>Azure OpenAI endpoint + API key</li>
- *   <li>Azure deployments: {@code gpt-4o} and {@code text-embedding-ada-002}</li>
- *   <li>Neon PostgreSQL connection URL, username, password</li>
+ *   <li>Docker Desktop running — start ChromaDB with {@code docker compose up -d}</li>
+ *   <li>Azure OpenAI endpoint + API key in {@code keys.properties}</li>
+ *   <li>Azure deployments: {@code gpt-4.1} and {@code text-embedding-3-large}</li>
  * </ul>
  *
  * @see ke.javaconnect.lab2.ingestion.StoryIngestionService

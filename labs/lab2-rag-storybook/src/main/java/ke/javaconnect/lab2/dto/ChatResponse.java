@@ -24,7 +24,7 @@ import java.time.Instant;
  * {
  *   "conversationId": "session-42",
  *   "reply": "Ayana is the Keeper of Listening, a seventeen-year-old girl who arrived...",
- *   "model": "gpt-4o",
+ *   "model": "gpt-4.1",
  *   "timestamp": "2025-06-10T09:15:30.123Z"
  * }
  * </pre>

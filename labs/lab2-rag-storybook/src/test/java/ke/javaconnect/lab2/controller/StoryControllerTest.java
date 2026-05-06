@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(StoryController.class)
 @Import(GlobalExceptionHandler.class)
 @TestPropertySource(properties = {
-        "spring.ai.azure.openai.chat.options.deployment-name=gpt-4o",
+        "spring.ai.azure.openai.chat.options.deployment-name=gpt-4.1",
         "app.rag.top-k=5",
         "app.rag.similarity-threshold=0.65"
 })
@@ -60,7 +60,7 @@ class StoryControllerTest {
                     .andExpect(content().contentType(MediaType.APPLICATION_JSON))
                     .andExpect(jsonPath("$.conversationId").value("test-session"))
                     .andExpect(jsonPath("$.reply").value("Ayana is the Keeper of Listening who arrived in the valley."))
-                    .andExpect(jsonPath("$.model").value("gpt-4o"))
+                    .andExpect(jsonPath("$.model").value("gpt-4.1"))
                     .andExpect(jsonPath("$.timestamp").isNotEmpty());
         }
 

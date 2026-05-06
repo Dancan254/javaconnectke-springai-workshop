@@ -19,7 +19,7 @@
     <description>
         JavaConnect KE Spring AI Workshop — Lab 2.
         Demonstrates Retrieval-Augmented Generation (RAG) using Azure OpenAI,
-        PgVector on Neon, Flyway migrations, and the Spring AI ETL pipeline.
+        ChromaDB (local via Docker), and the Spring AI ETL pipeline.
     </description>
 
     <properties>
@@ -46,7 +46,7 @@
 
         <dependency>
             <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
+            <artifactId>spring-ai-starter-vector-store-chroma</artifactId>
         </dependency>
 
         <dependency>
@@ -57,27 +57,6 @@
         <dependency>
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-markdown-document-reader</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-jdbc</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.postgresql</groupId>
-            <artifactId>postgresql</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.flywaydb</groupId>
-            <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
 
         <dependency>

@@ -7,4 +7,3 @@ logging:
     ke.javaconnect: INFO
     org.springframework.ai.chat.client.advisor: INFO
     org.springframework.ai.vectorstore: INFO
-    org.flywaydb: WARN

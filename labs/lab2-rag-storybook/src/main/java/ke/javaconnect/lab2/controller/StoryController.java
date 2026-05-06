@@ -27,9 +27,9 @@ import java.util.List;
  * <pre>
  * STEP 1 — POST /story/ask?message=&amp;conversationId=
  *   The primary RAG endpoint.
- *   QuestionAnswerAdvisor retrieves relevant story chunks from PgVector,
+ *   QuestionAnswerAdvisor retrieves relevant story chunks from ChromaDB,
  *   MessageChatMemoryAdvisor adds conversation history,
- *   Azure OpenAI gpt-4o generates a grounded answer.
+ *   Azure OpenAI gpt-4.1 generates a grounded answer.
  *   Try asking follow-up questions with the same conversationId to
  *   see memory + RAG working together.
  *
@@ -77,7 +77,7 @@ public class StoryController {
     private final ChatClient storyChatClient;
     private final VectorStore vectorStore;
 
-    @Value("${spring.ai.azure.openai.chat.options.deployment-name:gpt-4o}")
+    @Value("${spring.ai.azure.openai.chat.options.deployment-name:gpt-4.1}")
     private String model;
 
     @Value("${app.rag.top-k:5}")
@@ -102,10 +102,10 @@ public class StoryController {
      *   <li>{@code SimpleLoggerAdvisor} captures the raw user message.</li>
      *   <li>{@code MessageChatMemoryAdvisor} loads prior turns for this
      *       {@code conversationId} and injects them as chat history.</li>
-     *   <li>{@code QuestionAnswerAdvisor} embeds the question, searches the
-     *       vector store for the top-{@code K} semantically similar story
-     *       passages, and appends them as context in the prompt.</li>
-     *   <li>Azure OpenAI gpt-4o receives the enriched prompt and generates
+     *   <li>{@code QuestionAnswerAdvisor} embeds the question, searches ChromaDB
+     *       for the top-{@code K} semantically similar story passages, and
+     *       appends them as context in the prompt.</li>
+     *   <li>Azure OpenAI gpt-4.1 receives the enriched prompt and generates
      *       an answer grounded entirely in the retrieved story passages.</li>
      *   <li>{@code MessageChatMemoryAdvisor} saves the new turn to memory.</li>
      * </ol>
@@ -213,9 +213,9 @@ public class StoryController {
      * audience what the vector store contains.
      *
      * <p><b>Note:</b> this returns a representative sample, not all documents.
-     * For a full inventory, query the Neon database directly:
+     * For a full inventory, inspect ChromaDB directly via its REST API:
      * <pre>
-     *   SELECT id, content, metadata FROM vector_store ORDER BY metadata->>'chunk_index';
+     *   curl http://localhost:8000/api/v2/collections
      * </pre>
      *
      * @param topK number of sample chunks to return (default: 20)
