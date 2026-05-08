@@ -1,6 +1,7 @@
 package ke.javaconnect.lab2.controller;
 
 import ke.javaconnect.lab2.exception.GlobalExceptionHandler;
+import ke.javaconnect.lab2.session.SessionRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -44,13 +45,17 @@ class StoryControllerTest {
     @MockitoBean
     private ChatClient storyChatClient;
 
+    @MockitoBean
+    private SessionRegistry sessionRegistry;
+
     @Nested
     @DisplayName("POST /story/ask")
     class AskEndpointTests {
 
         @Test
-        @DisplayName("returns 200 with full chat response for a valid question")
+        @DisplayName("returns 200 with full chat response for a valid question and known session")
         void returns200ForValidQuestion() throws Exception {
+            when(sessionRegistry.exists("test-session")).thenReturn(true);
             mockChatClientReply("Ayana is the Keeper of Listening who arrived in the valley.");
 
             mockMvc.perform(post("/story/ask")
@@ -65,46 +70,63 @@ class StoryControllerTest {
         }
 
         @Test
-        @DisplayName("defaults conversationId to 'default' when not provided")
-        void defaultsConversationIdToDefault() throws Exception {
-            mockChatClientReply("The valley welcomes all who arrive.");
-
+        @DisplayName("returns 400 when conversationId is not provided")
+        void returns400WhenConversationIdMissing() throws Exception {
             mockMvc.perform(post("/story/ask")
                             .param("message", "Tell me about the valley"))
-                    .andExpect(status().isOk())
-                    .andExpect(jsonPath("$.conversationId").value("default"));
+                    .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("returns 404 when conversationId is not a known session")
+        void returns404ForUnknownSession() throws Exception {
+            when(sessionRegistry.exists("unknown-id")).thenReturn(false);
+
+            mockMvc.perform(post("/story/ask")
+                            .param("message", "Who is Ayana?")
+                            .param("conversationId", "unknown-id"))
+                    .andExpect(status().isNotFound());
         }
 
         @Test
         @DisplayName("returns 400 when message is blank whitespace")
         void returns400ForBlankMessage() throws Exception {
+            when(sessionRegistry.exists("test-session")).thenReturn(true);
+
             mockMvc.perform(post("/story/ask")
-                            .param("message", "   "))
+                            .param("message", "   ")
+                            .param("conversationId", "test-session"))
                     .andExpect(status().isBadRequest());
         }
 
         @Test
         @DisplayName("returns 400 when message parameter is missing entirely")
         void returns400WhenMessageMissing() throws Exception {
-            mockMvc.perform(post("/story/ask"))
+            mockMvc.perform(post("/story/ask")
+                            .param("conversationId", "test-session"))
                     .andExpect(status().isBadRequest());
         }
 
         @Test
         @DisplayName("returns 400 when message exceeds 2000 characters")
         void returns400WhenMessageTooLong() throws Exception {
+            when(sessionRegistry.exists("test-session")).thenReturn(true);
+
             mockMvc.perform(post("/story/ask")
-                            .param("message", "A".repeat(2001)))
+                            .param("message", "A".repeat(2001))
+                            .param("conversationId", "test-session"))
                     .andExpect(status().isBadRequest());
         }
 
         @Test
         @DisplayName("accepts message at exactly 2000 characters")
         void accepts2000CharMessage() throws Exception {
+            when(sessionRegistry.exists("test-session")).thenReturn(true);
             mockChatClientReply("Valid response.");
 
             mockMvc.perform(post("/story/ask")
-                            .param("message", "A".repeat(2000)))
+                            .param("message", "A".repeat(2000))
+                            .param("conversationId", "test-session"))
                     .andExpect(status().isOk());
         }
     }

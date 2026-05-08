@@ -116,3 +116,4 @@ replay_pid*
 # -----------------------------------------------------------------------------
 **/surefire-reports/
 **/failsafe-reports/
+TALK_FLOW.md

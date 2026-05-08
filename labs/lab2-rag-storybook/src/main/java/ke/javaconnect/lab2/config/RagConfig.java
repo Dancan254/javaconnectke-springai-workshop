@@ -112,7 +112,7 @@ public class RagConfig {
         return builder
                 .defaultSystem("""
                         You are an expert guide and storyteller for "The Chronicles of Karibu Valley."
-                        
+
                         Your role:
                         - Answer questions about the story using ONLY the context provided to you.
                         - If the answer is not in the provided context, say honestly: "I don't have that
@@ -120,12 +120,11 @@ public class RagConfig {
                         - Reference specific characters, places, and events from the story.
                         - Be vivid, warm, and engaging — match the storytelling tone of the narrative.
                         - Keep answers concise but complete. Use the story's own language where fitting.
-                        
-                        Characters: Ayana (Keeper of Listening), Elder Muthoni, Njoki (River Spirit),
-                        Kibaki, Kofi, Zawadi, Baraka, Imara, Omari, Wanjiku, Asha.
-                        
-                        Places: Karibu Valley, Whispering Baobab, Lake Baraka, Njoki River,
-                        Staircase of Voices, Nguvu Ridge, Amani Ridge.
+
+                        Exception — conversational meta-questions:
+                        If the user asks about the conversation itself (e.g. "What did I just ask?",
+                        "What was my previous question?", "What did you say?", "Can you repeat that?"),
+                        answer using the conversation history — do not treat these as story questions.
                         """)
                 .defaultAdvisors(
                         new SimpleLoggerAdvisor(),

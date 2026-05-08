@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import ke.javaconnect.lab2.dto.ChatResponse;
 import ke.javaconnect.lab2.dto.SearchResult;
+import ke.javaconnect.lab2.exception.SessionNotFoundException;
+import ke.javaconnect.lab2.session.SessionRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
@@ -76,6 +78,7 @@ public class StoryController {
 
     private final ChatClient storyChatClient;
     private final VectorStore vectorStore;
+    private final SessionRegistry sessionRegistry;
 
     @Value("${spring.ai.azure.openai.chat.options.deployment-name:gpt-4.1}")
     private String model;
@@ -86,9 +89,11 @@ public class StoryController {
     @Value("${app.rag.similarity-threshold:0.65}")
     private double defaultThreshold;
 
-    public StoryController(ChatClient storyChatClient, VectorStore vectorStore) {
+    public StoryController(ChatClient storyChatClient, VectorStore vectorStore,
+                           SessionRegistry sessionRegistry) {
         this.storyChatClient = storyChatClient;
         this.vectorStore     = vectorStore;
+        this.sessionRegistry = sessionRegistry;
     }
 
     // STEP 1 — RAG Chat with Memory
@@ -124,7 +129,11 @@ public class StoryController {
             @NotBlank(message = "message must not be blank")
             @Size(max = 2000, message = "message must be 2000 characters or fewer")
             String message,
-            @RequestParam(defaultValue = "default") String conversationId) {
+            @RequestParam String conversationId) {
+
+        if (!sessionRegistry.exists(conversationId)) {
+            throw new SessionNotFoundException(conversationId);
+        }
 
         log.info("[RAG][QUERY] conversationId={} | question='{}'", conversationId, message);
 
@@ -182,13 +191,13 @@ public class StoryController {
             @RequestParam(required = false) Integer topK) {
 
         int k = topK != null ? topK : defaultTopK;
-        log.info("[RAG][SEARCH] query='{}' topK={} threshold={}", query, k, defaultThreshold);
+        log.info("[RAG][SEARCH] query='{}' topK={}", query, k);
 
         List<Document> results = vectorStore.similaritySearch(
                 SearchRequest.builder()
                         .query(query)
                         .topK(k)
-                        .similarityThreshold(defaultThreshold)
+                        .similarityThreshold(0.0)
                         .build()
         );
 

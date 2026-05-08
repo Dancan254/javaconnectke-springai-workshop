@@ -55,7 +55,7 @@ public class MemoryConfig {
     private int maxMessages;
 
     /**
-     * In-memory conversation store — simple, zero-dependency, workshop-ready.
+     * In-memory conversation store
      * All conversation history is lost when the application restarts.
      */
     @Bean

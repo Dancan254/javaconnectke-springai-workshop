@@ -1,10 +1,13 @@
 package ke.javaconnect.lab2.controller;
 
 import ke.javaconnect.lab2.dto.MessageView;
+import ke.javaconnect.lab2.dto.SessionCreatedResponse;
+import ke.javaconnect.lab2.session.SessionRegistry;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -49,11 +52,34 @@ public class ConversationController {
 
     private final ChatMemory chatMemory;
     private final ChatMemoryRepository chatMemoryRepository;
+    private final SessionRegistry sessionRegistry;
 
     public ConversationController(ChatMemory chatMemory,
-                                  ChatMemoryRepository chatMemoryRepository) {
+                                  ChatMemoryRepository chatMemoryRepository,
+                                  SessionRegistry sessionRegistry) {
         this.chatMemory           = chatMemory;
         this.chatMemoryRepository = chatMemoryRepository;
+        this.sessionRegistry      = sessionRegistry;
+    }
+
+    /**
+     * Creates a new chat session and returns its UUID.
+     *
+     * <p>The returned {@code conversationId} must be passed to every
+     * {@code POST /story/ask} request. Requests with an unknown or missing
+     * {@code conversationId} will be rejected with HTTP 404.
+     *
+     * <pre>
+     *   curl -X POST http://localhost:8080/conversations
+     *   # → 201 { "conversationId": "...", "createdAt": "..." }
+     * </pre>
+     */
+    @PostMapping
+    public ResponseEntity<SessionCreatedResponse> createSession() {
+        String id = sessionRegistry.create();
+        log.info("[SESSION] Created new session conversationId={}", id);
+        SessionCreatedResponse response = new SessionCreatedResponse(id, sessionRegistry.createdAt(id));
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     /**
@@ -82,23 +108,25 @@ public class ConversationController {
     }
 
     /**
-     * Clears history for a single conversation.
+     * Clears history for a single conversation and invalidates its session.
      */
     @DeleteMapping("/{conversationId}")
     public ResponseEntity<Void> clearConversation(@PathVariable String conversationId) {
         log.info("[MEMORY] Clearing conversationId={}", conversationId);
         chatMemory.clear(conversationId);
+        sessionRegistry.remove(conversationId);
         return ResponseEntity.noContent().build();
     }
 
     /**
-     * Clears ALL conversation histories — useful for workshop resets.
+     * Clears ALL conversation histories and invalidates all sessions — useful for workshop resets.
      */
     @DeleteMapping
     public ResponseEntity<Void> clearAllConversations() {
         List<String> ids = chatMemoryRepository.findConversationIds();
         log.info("[MEMORY] Clearing all {} conversations", ids.size());
         ids.forEach(chatMemory::clear);
+        sessionRegistry.removeAll();
         return ResponseEntity.noContent().build();
     }
 }

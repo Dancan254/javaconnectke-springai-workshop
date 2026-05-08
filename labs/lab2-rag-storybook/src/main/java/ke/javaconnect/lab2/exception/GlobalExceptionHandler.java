@@ -46,6 +46,18 @@ public class GlobalExceptionHandler {
         return problem;
     }
 
+    @ExceptionHandler(SessionNotFoundException.class)
+    public ProblemDetail handleSessionNotFound(SessionNotFoundException ex) {
+        log.warn("[SESSION] {}", ex.getMessage());
+
+        ProblemDetail problem = ProblemDetail.forStatusAndDetail(
+                HttpStatus.NOT_FOUND, ex.getMessage());
+        problem.setType(URI.create("about:session-not-found"));
+        problem.setTitle("Session Not Found");
+        problem.setProperty("timestamp", Instant.now());
+        return problem;
+    }
+
     @ExceptionHandler(MissingServletRequestParameterException.class)
     public ProblemDetail handleMissingParam(MissingServletRequestParameterException ex) {
         log.warn("[VALIDATION] Missing required parameter: {}", ex.getParameterName());
